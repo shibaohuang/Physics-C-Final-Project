@@ -1,16 +1,43 @@
 Web VPython 3.2
 from vpython import *
 
-particle = ['deuterium', 'tritium']
+scene.background = color.black
+
+tokamak = ring(
+    pos=vector(0,0,0),
+    axis=vector(0,1,0),
+    radius=8,
+    thickness=2,
+    color=color.gray(0.5)
+)
+
+fusion_distance = 0.4
+fusion_energy = 17.6 
+
+collision_count = 0
+total_energy = 0
+
+p1 = sphere(
+    pos=vector(-3,0,0),
+    radius=0.2,
+    color=color.cyan,
+    make_trail=True
+)
+
+p2 = sphere(
+    pos=vector(3,0,0),
+    radius=0.2,
+    color=color.red,
+    make_trail=True
+)
+
+v1 = vector(1,1,0.5)
+v2 = vector(-1,-1,-0.5)
 
 mass = 1.0
 charge = 1.0
 B_field = vector(0, 0, 1)  
 pos_init = vector(0, 0, 0)
-v_init = vector(1, 0, 1)
-
-particle[0] = sphere(pos=pos_init, radius=0.2, color=color.cyan, make_trail=True)
-trail = curve(color=color.magenta, radius=0.05)
 
 dt = 0.01
 t = 0
