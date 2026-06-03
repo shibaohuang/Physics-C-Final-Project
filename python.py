@@ -9,6 +9,17 @@ fusion_distance = 0.4
 fusion_energy = 17.6 
 collision_count = 0
 total_energy = 0
+radius_orbit = 4
+
+R = 8        # major radius (big circle)
+r_tube = 2   # minor radius (particle orbits inside the tube)
+toroidal_speed = 0.5    # how fast particles go around the big circle
+
+# Starting angles (radians)
+phi1 = 0          # toroidal angle particle 1 (position on big circle)
+phi2 = pi         # toroidal angle particle 2 (opposite side)
+theta1 = 0        # poloidal angle particle 1 (position in tube)
+theta2 = 0        # poloidal angle particle 2
 
 class FusingParticles:
     def __init__(self, name, mass, charge, v_initial, color):
@@ -37,6 +48,15 @@ trail2 = curve(color = particles[1].color, radius = 0.05)
 mass2 = particles[1].mass
 charge2 = particles[1].charge
 v_init2 = particles[1].velocity
+
+def get_pos(phi, theta):
+    x = (R + r_tube * cos(theta)) * cos(phi)
+    y = r_tube * sin(theta)
+    z = (R + r_tube * cos(theta)) * sin(phi)
+    return vector(x, y, z)
+
+particle1.pos = get_pos(phi1, theta1)
+particle2.pos = get_pos(phi2, theta2)
 
 #Graphs
 g1 = graph(
@@ -121,9 +141,15 @@ while True:
         F2 = charge2 * cross(v_init2, B_field)
         v_init1 = v_init1 + (F1 / mass1) * dt
         v_init2 = v_init2 + (F2 / mass2) * dt
-        particle1.pos = particle1.pos + v_init1 * dt
+        poloidal1_speed = mag(v_init1)
+        poloidal2_speed = mag(v_init2)
+        phi1 += toroidal_speed * dt
+        phi2 += toroidal_speed * dt
+        theta1 += poloidal1_speed * dt
+        theta2 -= poloidal2_speed * dt
+        particle1.pos = get_pos(phi1, theta1)
+        particle2.pos = get_pos(phi2, theta2)
         trail1.append(particle1.pos)
-        particle2.pos = particle2.pos + v_init2 * dt
         trail2.append(particle2.pos)
         if mag(particle1.pos - particle2.pos) < fusion_distance:
             collision_count += 1
