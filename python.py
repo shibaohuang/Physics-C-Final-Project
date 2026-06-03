@@ -2,7 +2,7 @@ Web VPython 3.2
 from vpython import *
 
 #Static Variables
-B_field = vector(0, 0, 4)
+B_field = vector(0, 0, 2)
 particles = []
 running = False
 fusion_distance = 0.4
@@ -19,26 +19,20 @@ class FusingParticles:
         self.velocity = v_initial
         self.color = color
 
-tokamak = ring(
-    pos=vector(0,0,0),
-    axis=vector(0,1,0),
-    radius=8,
-    thickness=2,
-    color=color.gray(0.5)
-)
+tokamak = ring(pos = vector (0, 0, 0), axis = vector (0, 1, 0), radius = 8, thickness = 4, color = color.gray(0.5), opacity = 0.5)
 
 #Different Elements
 tritium = FusingParticles(name = "Tritium", mass = 1, charge = 1, v_initial = vector(1, 1, 0.5), color = color.red)
 deuterium = FusingParticles(name = "Deuterium", mass = 1, charge = 1, v_initial = vector(1, 1, 0.5), color = color.cyan)
 
 #Making Particles
-particle1 = sphere(pos = vector(-3, 0, 0), radius = 0.2, color = particles[0].color)
+particle1 = sphere(pos = vector(-8, 0, 0), radius = 0.2, color = particles[0].color)
 trail1 = curve(color = particles[0].color, radius = 0.05)
 mass1 = particles[0].mass
 charge1 = particles[0].charge
 v_init1 = -particles[0].velocity
 
-particle2 = sphere(pos = vector(3, 0, 0), radius = 0.2, color = particles[1].color)
+particle2 = sphere(pos = vector(8, 0, 0), radius = 0.2, color = particles[1].color)
 trail2 = curve(color = particles[1].color, radius = 0.05)
 mass2 = particles[1].mass
 charge2 = particles[1].charge
@@ -131,10 +125,6 @@ while True:
         trail1.append(particle1.pos)
         particle2.pos = particle2.pos + v_init2 * dt
         trail2.append(particle2.pos)
-        if mag(particle1.pos) > 8:
-            particle1.pos = vector(-3,0,0)
-        if mag(particle2.pos) > 8:
-            particle2.pos = vector(3,0,0)
         if mag(particle1.pos - particle2.pos) < fusion_distance:
             collision_count += 1
             total_energy += fusion_energy
