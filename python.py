@@ -9,6 +9,7 @@ fusion_distance = 0.7
 fusion_energy = 17.6 
 collision_count = 0
 total_energy = 0
+tokamak_center = vector(-15,-8,0)
 
 #Static Tokamak Variables
 R = 8        # major radius (big circle)
@@ -31,8 +32,8 @@ class FusingParticles:
         self.velocity = v_initial
         self.color = color
 
-tokamak = ring(pos = vector (0, 0, 0), axis = vector (0, 1, 0), radius = 8, thickness = 5, color = color.cyan, opacity = 0.2)
-tokamak = ring(pos = vector (0, 0, 0), axis = vector (0, 1, 0), radius = 8.5, thickness = 6, color = color.gray(0.5), opacity = 0.3)
+tokamak = ring(pos = tokamak_center, axis = vector (0, 1, 0), radius = 8, thickness = 5, color = color.cyan, opacity = 0.2)
+tokamak = ring(pos = tokamak_center, axis = vector (0, 1, 0), radius = 8.5, thickness = 6, color = color.gray(0.5), opacity = 0.3)
 
 #Different Elements
 tritium = FusingParticles(name = "Tritium", mass = 5.007, charge = 1.6, v_initial = vector(1, 0, 0.2), color = color.red) #mass in 10^-27 and charge in 10^-19
@@ -55,7 +56,7 @@ def get_pos(phi, theta):
     x = (R + r_tube * cos(theta)) * cos(phi)
     y = r_tube * sin(theta)
     z = (R + r_tube * cos(theta)) * sin(phi)
-    return vector(x, y, z)
+    return vector(x, y, z) + tokamak_center
 
 particle1.pos = get_pos(phi1, theta1)
 particle2.pos = get_pos(phi2, theta2)
@@ -98,9 +99,9 @@ def toggle_sim(b):
     global running
     running = not running
     if running:
-        b.text = "Start"
-    else:
         b.text = "Stop"
+    else:
+        b.text = "Start"
 
 #Reset
 def reset_sim():
@@ -161,7 +162,7 @@ menu(choices = element_names, selected = element_names[0], bind=change_element1)
 scene.append_to_caption(" Particle 2: ")
 menu(choices = element_names, selected = element_names[1], bind=change_element2)
 scene.append_to_caption("\n\n")
-button(text = "Stop", bind = toggle_sim)
+button(text = "Start", bind = toggle_sim)
 
 #Simulation Loop
 dt = 0.01
