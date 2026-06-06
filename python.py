@@ -35,6 +35,37 @@ class FusingParticles:
 tokamak = ring(pos = tokamak_center, axis = vector (0, 1, 0), radius = 8, thickness = 5, color = color.cyan, opacity = 0.2)
 tokamak = ring(pos = tokamak_center, axis = vector (0, 1, 0), radius = 8.5, thickness = 6, color = color.gray(0.5), opacity = 0.3)
 
+city_windows = []
+
+building_positions = [
+    vector(15,8,0),
+    vector(18,8,0),
+    vector(21,8,0),
+    vector(24,8,0),
+    vector(27,8,0)
+]
+
+building_heights = [4,6,5,8,7]
+
+for i in range(len(building_positions)):
+
+    box(
+        pos=building_positions[i],
+        size=vector(2,building_heights[i],2),
+        color=color.gray(0.4)
+    )
+    windss = box(
+    pos=building_positions[i] + vector(0, 0.5, 1.1), 
+    size=vector(1, 1, 0.2), 
+    color=color.yellow,  # Changed from black so emissive works
+    emissive=True
+    )
+    city_windows.append(windss)
+
+
+
+
+
 #Different Elements
 tritium = FusingParticles(name = "Tritium", mass = 5.007, charge = 1.6, v_initial = vector(1, 0, 0.2), color = color.red) #mass in 10^-27 and charge in 10^-19
 deuterium = FusingParticles(name = "Deuterium", mass = 2.014, charge = 1.6, v_initial = vector(0.2, 0.2, 0), color = color.cyan)
@@ -187,6 +218,9 @@ while True:
         if mag(particle1.pos - particle2.pos) < fusion_distance:
             collision_count += 1
             total_energy += fusion_energy
+            powered = min(collision_count, len(city_windows))
+            for i in range(powered):
+                city_windows[i].color=color.yellow
             flash = sphere(pos=(particle1.pos+particle2.pos)/2, radius=0.4, color=color.yellow, emissive=True)
         energy_curve.plot(t,total_energy)
         collision_curve.plot(t,collision_count)
