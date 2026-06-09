@@ -4,12 +4,22 @@ from vpython import *
 #Static Variables
 B_field = vector(0, 0, 2)
 particles = []
+collisions = []
 running = False
-fusion_distance = 0.4
-fusion_energy = 17.6 
+shutdown = False
+fusion_distance = 0.7
 collision_count = 0
 total_energy = 0
 radius_orbit = 4
+c_light = 3e8          
+defect_fraction = 0.00375  
+energy_per_building = 35.2 
+lawson_threshold = 3e21
+lawson_fail_time = 0
+shutdown_grace = 2.0
+magnet_objects = []
+tokamak_objects = []
+base_field_strength = 0.25
 
 R = 8        # major radius (big circle)
 r_tube = 2   # minor radius (particle orbits inside the tube)
