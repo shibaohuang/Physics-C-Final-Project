@@ -40,11 +40,33 @@ class FusingParticles:
         self.velocity = v_initial
         self.color = color
 
-tokamak = ring(pos = vector (0, 0, 0), axis = vector (0, 1, 0), radius = 8, thickness = 4, color = color.gray(0.5), opacity = 0.5)
+def draw_tokamak():
+    global tokamak_objects
+    for obj in tokamak_objects:
+        obj.visible = False
+    tokamak_objects = []
+    inner = ring(pos=tokamak_center, axis=vector(0,1,0), radius=R,
+                 thickness=r_tube, color=color.cyan, opacity=0.2)
+    outer = ring(pos=tokamak_center, axis=vector(0,1,0), radius=R,
+                 thickness=r_tube+0.5, color=color.gray(0.5), opacity=0.3)
+    tokamak_objects = [inner, outer]
+
+def draw_magnets():
+    global magnet_objects
+    for m in magnet_objects:
+        m.visible = False
+    magnet_objects = []
+    for i in range(num_magnets):
+        angle = 2*pi*i/num_magnets
+        x = tokamak_center.x + (R + r_tube + 1) * cos(angle)
+        z = tokamak_center.z + (R + r_tube + 1) * sin(angle)
+        magnet = box(pos=vector(x, 0, z), size=vector(0.8, 4, 1.5), color=color.blue)
+        magnet_objects.append(magnet)
 
 #Different Elements
-tritium = FusingParticles(name = "Tritium", mass = 1, charge = 1, v_initial = vector(1, 1, 0.5), color = color.red)
-deuterium = FusingParticles(name = "Deuterium", mass = 1, charge = 1, v_initial = vector(1, 1, 0.5), color = color.cyan)
+tritium   = FusingParticles(name="Tritium",   mass=5.008, charge=1.6, v_initial=vector(1, 0, 0.2),   color=color.red)
+deuterium = FusingParticles(name="Deuterium", mass=3.344, charge=1.6, v_initial=vector(0.2, 0.2, 0), color=color.cyan)
+helium3   = FusingParticles(name="Helium-3",  mass=5.008, charge=3.2, v_initial=vector(0.5, 0.1, 0.3), color=color.orange)
 
 #Making Particles
 particle1 = sphere(pos = vector(-8, 0, 0), radius = 0.2, color = particles[0].color)
