@@ -62,6 +62,21 @@ def draw_magnets():
         z = tokamak_center.z + (R + r_tube + 1) * sin(angle)
         magnet = box(pos=vector(x, 0, z), size=vector(0.8, 4, 1.5), color=color.blue)
         magnet_objects.append(magnet)
+city_windows = []
+building_positions = [vector(15,0,0), vector(18,0,0), vector(21,0,0), vector(24,0,0), vector(27,0,0)]
+building_heights = [4,6,5,8,7]
+for i in range(len(building_positions)):
+    box(pos=building_positions[i], size=vector(2,building_heights[i],2), color=color.gray(0.4))
+    windss = box(pos=building_positions[i] + vector(0, 0.5, 1.1),
+                 size=vector(1, 1, 0.2), color=color.black, emissive=True)
+    city_windows.append(windss)
+
+def update_city():
+    for i in range(len(city_windows)):
+        b = total_energy/energy_per_building - i
+        if b < 0: b = 0
+        if b > 1: b = 1
+        city_windows[i].color = vector(b, b, 0.15*b)
 
 #Different Elements
 tritium   = FusingParticles(name="Tritium",   mass=5.008, charge=1.6, v_initial=vector(1, 0, 0.2),   color=color.red)
