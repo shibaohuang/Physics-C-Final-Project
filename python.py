@@ -4,6 +4,7 @@ from vpython import *
 #Static Variables
 B_field = vector(0, 0, 2)
 particles = []
+collisions = []
 running = False
 fusion_distance = 0.7
 fusion_energy = 17.6 
@@ -14,12 +15,13 @@ tokamak_center = vector(-15,-8,0)
 #Static Tokamak Variables
 R = 8        # major radius (big circle)
 r_tube = 4   # minor radius (particle orbits inside the tube)
-toroidal1_speed = 0.5    # how fast particles go around the big circle
+toroidal1_speed = 0.5   # how fast particles go around the big circle
 toroidal2_speed = 1
+tokamak_center = vector(-15,-8,0)
 
 # Starting angles (radians)
-phi1 = 0          # toroidal angle particle 1 (position on big circle)
-phi2 = pi         # toroidal angle particle 2 (opposite side)
+phi1 = pi          # toroidal angle particle 1 (position on big circle)
+phi2 = 0         # toroidal angle particle 2 (opposite side)
 theta1 = 0        # poloidal angle particle 1 (position in tube)
 theta2 = 0        # poloidal angle particle 2
 
@@ -32,9 +34,10 @@ class FusingParticles:
         self.velocity = v_initial
         self.color = color
 
-tokamak = ring(pos = tokamak_center, axis = vector (0, 1, 0), radius = 8, thickness = 5, color = color.cyan, opacity = 0.2)
-tokamak = ring(pos = tokamak_center, axis = vector (0, 1, 0), radius = 8.5, thickness = 6, color = color.gray(0.5), opacity = 0.3)
+tokamak = ring(pos = tokamak_center, axis = vector (0, 1, 0), radius = R, thickness = R-r_tube + 0.5, color = color.cyan, opacity = 0.2)
+tokamak = ring(pos = tokamak_center, axis = vector (0, 1, 0), radius = R + 0.5, thickness = R-r_tube + 1, color = color.gray(0.5), opacity = 0.3)
 
+#City
 city_windows = []
 
 building_positions = [
@@ -62,30 +65,26 @@ for i in range(len(building_positions)):
     )
     city_windows.append(windss)
 
-
-
-
-
 #Different Elements
 tritium = FusingParticles(name = "Tritium", mass = 5.007, charge = 1.6, v_initial = vector(1, 0, 0.2), color = color.red) #mass in 10^-27 and charge in 10^-19
 deuterium = FusingParticles(name = "Deuterium", mass = 2.014, charge = 1.6, v_initial = vector(0.2, 0.2, 0), color = color.cyan)
 
 #Making Particles
-particle1 = sphere(pos = vector(-8, 0, 0), radius = 0.2, color = particles[0].color)
+particle1 = sphere(pos = vector(-23, -8, 0), radius = 0.2, color = particles[0].color)
 trail1 = curve(color = particles[0].color, radius = 0.05)
 mass1 = particles[0].mass
 charge1 = particles[0].charge
 v_init1 = -particles[0].velocity
 
-particle2 = sphere(pos = vector(8, 0, 0), radius = 0.2, color = particles[1].color)
+particle2 = sphere(pos = vector (-7, -8, 0), radius = 0.2, color = particles[1].color)
 trail2 = curve(color = particles[1].color, radius = 0.05)
 mass2 = particles[1].mass
 charge2 = particles[1].charge
 v_init2 = particles[1].velocity
 
 def get_pos(phi, theta):
-    x = (R + r_tube * cos(theta)) * cos(phi)
-    y = r_tube * sin(theta)
+    x = (R + r_tube * cos(theta)) * cos(phi) - 15
+    y = -8 + r_tube * sin(theta)
     z = (R + r_tube * cos(theta)) * sin(phi)
     return vector(x, y, z) + tokamak_center
 
@@ -98,7 +97,6 @@ g1 = graph(
     xtitle="Time",
     ytitle="Energy (MeV)"
 )
-
 energy_curve = gcurve(color=color.yellow)
 
 g2 = graph(
@@ -106,7 +104,6 @@ g2 = graph(
     xtitle="Time",
     ytitle="Collisions"
 )
-
 collision_curve = gcurve(color=color.green)
 
 g3 = graph(
@@ -114,7 +111,6 @@ g3 = graph(
     xtitle = "Time",
     ytitle="Velocity"
 )
-
 velocity1_curve = gcurve(color=color.red)
 
 g4 = graph(
@@ -122,43 +118,59 @@ g4 = graph(
     xtitle = "Time",
     ytitle="Velocity"
 )
-
 velocity2_curve = gcurve(color=color.blue)
 
 #Start/Stop
 def toggle_sim(b):
     global running
     running = not running
-    if running:
-        b.text = "Stop"
-    else:
-        b.text = "Start"
 
 #Reset
 def reset_sim():
-    global running
-    t = 0
-    running = not running
-    particle1.pos = vector(0, 0, 0)
-    particle2.pos = vector (0, 0, 0)
-    velocity1_curve.data = []
-    velocity2_curve.data = []
-    energy_curve.data = []
-    collision_curve.data = []
-    
+    menu1.selected = element_names[0]
+    menu2.selected = element_names[1]
+    for c in collisions:
+        c.visible = False
+    change_sim()
+
 #Change
 def change_sim():
-    global v_init1, v_init2, t, running, total_energy, collision_count
-    running = False
-    toggle_sim(b)
+    global running, trail1, trail2, v_init1, v_init2, total_energy, collision_count, toroidal1_speed, toroidal2_speed, phi1, phi2, theta1, theta2, t
+    running = False 
+    t = 0
+
+    # Reset particle properties back to defaults
+    trail1.clear()
+    trail2.clear()
+    p1 = find_particle(menu1.selected)
+    p2 = find_particle(menu2.selected)
+    particle1.color = p1.color
+    particle2.color = p2.color
+    trail1.color = p1.color
+    trail2.color = p2.color
+    
+    phi1 = pi
+    phi2 = 0
+    theta1 = 0
+    theta2 = 0
+    toroidal1_speed = 0.5
+    toroidal2_speed = 1
+
+    # Reset positions
+    particle1.pos = get_pos(phi1, theta1)
+    particle2.pos = get_pos(phi2, theta2)
+
+    # Clear graphs
+    velocity1_curve.delete()
+    velocity2_curve.delete()
+    energy_curve.delete()
+    collision_curve.delete()
+
+    # Reset physics
+    v_init1 = -vector(p1.velocity)
+    v_init2 = vector(p2.velocity)
     total_energy = 0
     collision_count = 0
-    velocity1_curve.data = []
-    velocity2_curve.data = []
-    energy_curve.data = []
-    collision_curve.data = []
-    v_init1 = vector(find_particle(menu1.selected).velocity)
-    v_init2 = vector(find_particle(menu2.selected).velocity)
 
 #Element Selection Box
 def find_particle (name):
@@ -168,36 +180,39 @@ def find_particle (name):
     return None
 
 def change_element1 (i):
-    global mass1, charge1, v_init1
+    global mass1, charge1, v_init1, trail1, trail2
     p = find_particle(i.selected)
     particle1.color = p.color
     trail1.color = p.color
-    trail1.clear()
     mass1 = p.mass
     charge1 = p.charge
     change_sim()
     
 def change_element2 (i):
-    global mass2, charge2, v_init2
+    global mass2, charge2, v_init2, trail1, trail2
     p = find_particle(i.selected)
     particle2.color = p.color
     trail2.color = p.color
-    trail2.clear()
     mass2 = p.mass
     charge2 = p.charge
     change_sim()
 
 element_names = [p.element for p in particles]
-scene.caption = "Particle 1: "
-menu(choices = element_names, selected = element_names[0], bind=change_element1)
-scene.append_to_caption(" Particle 2: ")
-menu(choices = element_names, selected = element_names[1], bind=change_element2)
+scene.caption = "Press Play to Start Fusion\n"
+button(text = "Play", bind = toggle_sim)
+scene.append_to_caption(" ")
+button(text = "Reset", bind = reset_sim)
 scene.append_to_caption("\n\n")
-button(text = "Start", bind = toggle_sim)
+scene.append_to_caption("Particle 1: ")
+menu1 = menu(choices = element_names, selected = element_names[0], bind=change_element1)
+scene.append_to_caption(" Particle 2: ")
+menu2 = menu(choices = element_names, selected = element_names[1], bind=change_element2)
+scene.append_to_caption("\n")
 
 #Simulation Loop
 dt = 0.01
 t = 0
+
 while True:
     rate(1000)
     if running:
@@ -222,6 +237,10 @@ while True:
             for i in range(powered):
                 city_windows[i].color=color.yellow
             flash = sphere(pos=(particle1.pos+particle2.pos)/2, radius=0.4, color=color.yellow, emissive=True)
+            collisions.append(flash)
+            powered = min(collision_count, len(city_windows))
+            for i in range(powered):
+                city_windows[i].color=color.yellow
         energy_curve.plot(t,total_energy)
         collision_curve.plot(t,collision_count)
         velocity1_curve.plot(t, mag(v_init1))
