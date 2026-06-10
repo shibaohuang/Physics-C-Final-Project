@@ -16,7 +16,7 @@ R = 8        # major radius (big circle)
 r_tube = 4   # minor radius (particle orbits inside the tube)
 toroidal1_speed = 0.5   # how fast particles go around the big circle
 toroidal2_speed = 1
-tokamak_center = vector(-15,-8,0)
+tokamak_center = vector(-15,0,0)
 
 # Starting angles (radians)
 phi1 = pi          # toroidal angle particle 1 (position on big circle)
@@ -39,11 +39,11 @@ tokamak = ring(pos = tokamak_center, axis = vector (0, 1, 0), radius = R + 0.5, 
 #City
 city_windows = []
 building_positions = [
-    vector(15,8,0),
-    vector(18,8,0),
-    vector(21,8,0),
-    vector(24,8,0),
-    vector(27,8,0)
+    vector(15,0,0),
+    vector(18,0,0),
+    vector(21,0,0),
+    vector(24,0,0),
+    vector(27,0,0)
 ]
 
 building_heights = [4,6,5,8,7]
@@ -68,13 +68,13 @@ tritium = FusingParticles(name = "Tritium", mass = 5.007, charge = 1.6, v_initia
 deuterium = FusingParticles(name = "Deuterium", mass = 2.014, charge = 1.6, v_initial = vector(0.2, 0.2, 0), color = color.cyan)
 
 #Making Particles
-particle1 = sphere(pos = vector(-23, -8, 0), radius = 0.2, color = particles[0].color)
+particle1 = sphere(pos = vector(0, 0, 0), radius = 0.2, color = particles[0].color)
 trail1 = curve(color = particles[0].color, radius = 0.05)
 mass1 = particles[0].mass
 charge1 = particles[0].charge
 v_init1 = -particles[0].velocity
 
-particle2 = sphere(pos = vector (-7, -8, 0), radius = 0.2, color = particles[1].color)
+particle2 = sphere(pos = vector (0, 0, 0), radius = 0.2, color = particles[1].color)
 trail2 = curve(color = particles[1].color, radius = 0.05)
 mass2 = particles[1].mass
 charge2 = particles[1].charge
@@ -82,7 +82,7 @@ v_init2 = particles[1].velocity
 
 def get_pos(phi, theta):
     x = (R + r_tube * cos(theta)) * cos(phi) - 15
-    y = -8 + r_tube * sin(theta)
+    y = r_tube * sin(theta)
     z = (R + r_tube * cos(theta)) * sin(phi)
     return vector(x, y, z)
 
@@ -127,13 +127,23 @@ def toggle_sim(b):
 def reset_sim():
     menu1.selected = element_names[0]
     menu2.selected = element_names[1]
+    bfield_slider.value = 2
+    bfield_text.text = "2.00"
+    toroidal1_slider.value = 0.5
+    toroidal2_slider.value = 1
+    toroidal1_text.text = "0.50"
+    toroidal2_text.text = "1.00"
     for c in collisions:
         c.visible = False
     change_sim()
 
 #Change
 def change_sim():
-    global running, trail1, trail2, v_init1, v_init2, total_energy, collision_count, toroidal1_speed, toroidal2_speed, phi1, phi2, theta1, theta2, t
+    global B_field, running, trail1, trail2, v_init1, v_init2, total_energy, collision_count, toroidal1_speed, toroidal2_speed, phi1, phi2, theta1, theta2, t
+    bfield_text.text = "{:.2f}".format(bfield_slider.value)
+    toroidal1_text.text = "{:.2f}".format(toroidal1_slider.value)
+    toroidal2_text.text = "{:.2f}".format(toroidal2_slider.value)
+    
     running = False 
     t = 0
 
@@ -151,8 +161,9 @@ def change_sim():
     phi2 = 0
     theta1 = 0
     theta2 = 0
-    toroidal1_speed = 0.5
-    toroidal2_speed = 1
+    toroidal1_speed = toroidal1_slider.value
+    toroidal2_speed = toroidal2_slider.value
+    B_field = vector(0, 0, bfield_slider.value)
 
     # Reset positions
     particle1.pos = get_pos(phi1, theta1)
@@ -196,7 +207,7 @@ def change_element2 (i):
     change_sim()
 
 element_names = [p.element for p in particles]
-scene.caption = "Press Play to Start Fusion\n"
+scene.caption = "Press Play to Start Fusion \n\n"
 button(text = "Play", bind = toggle_sim)
 scene.append_to_caption(" ")
 button(text = "Reset", bind = reset_sim)
@@ -206,6 +217,23 @@ menu1 = menu(choices = element_names, selected = element_names[0], bind=change_e
 scene.append_to_caption(" Particle 2: ")
 menu2 = menu(choices = element_names, selected = element_names[1], bind=change_element2)
 scene.append_to_caption("\n")
+
+# Sliders
+
+scene.append_to_caption("\n\nB Field Strength: ")
+bfield_text = wtext(text="2.00")
+scene.append_to_caption("\n")
+bfield_slider = slider(min=0, max=10, value=2, length=300, bind=change_sim)
+
+scene.append_to_caption("\n\nParticle 1 Toroidal Speed: ")
+toroidal1_text = wtext(text="0.50")
+scene.append_to_caption("\n")
+toroidal1_slider = slider(min=0.1, max=3.0, value=0.5, length=300, bind=change_sim)
+
+scene.append_to_caption("\n\nParticle 2 Toroidal Speed: ")
+toroidal2_text = wtext(text="1.00")
+scene.append_to_caption("\n")
+toroidal2_slider = slider(min=0.1, max=3.0, value=1.0, length=300, bind=change_sim)
 
 #Simulation Loop
 dt = 0.01
