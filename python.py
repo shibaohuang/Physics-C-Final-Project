@@ -6,6 +6,7 @@ B_field = vector(0, 0, 2)
 particles = []
 collisions = []
 running = False
+shutdown = False
 fusion_distance = 0.7
 collision_count = 0
 total_energy = 0
@@ -13,6 +14,13 @@ c_light = 3e8
 defect_fraction = 0.00375
 energy_per_building = 35.2
 fusion_energy = 17.6   # MeV
+
+# ---- Lawson criterion constants ----
+# n * T * tau >= 3e21 keV*s/m^3 for a viable D-T reactor
+lawson_threshold = 3e21
+lawson_fail_time = 0
+shutdown_grace = 2.0   # seconds the reactor can fail before it shuts down
+# -----------------------------------------
 
 magnet_objects = []
 tokamak_objects = []
@@ -23,7 +31,7 @@ num_magnets = 8
 
 R = 8
 r_tube = 4
-toroidal1_speed = 0.5   # now separate per particle
+toroidal1_speed = 0.5
 toroidal2_speed = 1.0
 
 phi1 = pi
@@ -104,19 +112,56 @@ def get_pos(phi, theta):
     z = (R + r_tube * cos(theta)) * sin(phi)
     return vector(x, y, z) + tokamak_center
 
-# ---- NEW: RK4 physics functions ----
+# RK4 physics
 def lorentz_accel(v, q, m):
-    # a = (q/m) * (v x B)
     return (q / m) * cross(v, B_field)
 
 def rk4_velocity(v, q, m, dt):
-    # 4th-order Runge-Kutta for velocity update under Lorentz force
-    k1 = lorentz_accel(v,                 q, m)
-    k2 = lorentz_accel(v + 0.5*dt*k1,    q, m)
-    k3 = lorentz_accel(v + 0.5*dt*k2,    q, m)
-    k4 = lorentz_accel(v +     dt*k3,    q, m)
+    k1 = lorentz_accel(v,              q, m)
+    k2 = lorentz_accel(v + 0.5*dt*k1, q, m)
+    k3 = lorentz_accel(v + 0.5*dt*k2, q, m)
+    k4 = lorentz_accel(v +     dt*k3, q, m)
     return v + (dt / 6) * (k1 + 2*k2 + 2*k3 + k4)
-# ------------------------------------
+
+# ---- NEW: Lawson criterion physics functions ----
+def effective_density():
+    # Plasma density scales inversely with tube cross-section area (n ~ 1/r^2)
+    return density_slider.value * (4.0 / r_tube)**2   # units of 10^20 m^-3
+
+def plasma_temperature():
+    # Temperature estimated from mean kinetic energy of the two particles (keV)
+    return 8.0 * (mag2(v_init1) + mag2(v_init2)) / 2
+
+def confinement_time():
+    # Stronger field = better confinement = longer tau (s)
+    return 0.5 * mag(B_field)
+
+def lawson_product():
+    return effective_density() * 1e20 * plasma_temperature() * confinement_time()
+
+def shutdown_reactor():
+    global running, shutdown
+    running = False
+    shutdown = True
+    for m in magnet_objects:
+        m.color = color.red
+    for w in city_windows:
+        w.color = color.black
+    status_text.text = "REACTOR SHUTDOWN: Lawson criterion not met. Press Reset."
+
+def update_status():
+    prod = lawson_product()
+    lawson_text.text = "Lawson product: {:.2f}".format(prod / 1e21) \
+                     + " x10^21  (need >= 3.00 x10^21 keV*s/m^3)"
+    if shutdown:
+        return
+    if prod >= lawson_threshold:
+        status_text.text = "Lawson criterion MET - reactor stable."
+    else:
+        status_text.text = "WARNING: Lawson criterion NOT met - reactor will shut down!"
+    if total_energy >= energy_per_building * len(city_windows):
+        status_text.text = "CITY FULLY POWERED! Total energy: {:.1f} MeV".format(total_energy)
+# ------------------------------------------------
 
 # Graphs
 g1 = graph(title="Fusion Energy vs Time", xtitle="Time", ytitle="Energy (MeV)")
@@ -125,7 +170,6 @@ energy_curve = gcurve(color=color.yellow)
 g2 = graph(title="Collision Count vs Time", xtitle="Time", ytitle="Collisions")
 collision_curve = gcurve(color=color.green)
 
-# NEW: velocity and acceleration graphs
 g3 = graph(title="Particle Speed vs Time", xtitle="Time", ytitle="Speed")
 velocity1_curve = gcurve(color=color.red,  label="Particle 1")
 velocity2_curve = gcurve(color=color.blue, label="Particle 2")
@@ -141,8 +185,8 @@ def find_particle(name):
     return None
 
 def change_sim():
-    global B_field, running, v_init1, v_init2
-    global total_energy, collision_count
+    global B_field, running, shutdown, v_init1, v_init2
+    global total_energy, collision_count, lawson_fail_time
     global phi1, phi2, theta1, theta2, t, num_magnets, r_tube
     global mass1, mass2, charge1, charge2
     global toroidal1_speed, toroidal2_speed
@@ -154,13 +198,16 @@ def change_sim():
     magnet_text.text = str(num_magnets)
     r_tube = rtube_slider.value
     rtube_text.text = "{:.1f}".format(r_tube)
+    density_text.text = "{:.1f}".format(density_slider.value)
 
     draw_tokamak()
     draw_magnets()
 
     running = False
+    shutdown = False
     play_button.text = "Play"
     t = 0
+    lawson_fail_time = 0
 
     trail1.clear()
     trail2.clear()
@@ -201,19 +248,25 @@ def change_sim():
     total_energy = 0
     collision_count = 0
     update_city()
+    update_status()
 
 def reset_sim():
+    menu1.selected = element_names[0]
+    menu2.selected = element_names[1]
     bfield_slider.value    = 2
     toroidal1_slider.value = 0.5
     toroidal2_slider.value = 1.0
     magnet_slider.value    = 8
     rtube_slider.value     = 4
+    density_slider.value   = 5
     for c in collisions:
         c.visible = False
     change_sim()
 
 def toggle_sim(b):
     global running
+    if shutdown:
+        return
     running = not running
     b.text = "Pause" if running else "Play"
 
@@ -259,7 +312,16 @@ rtube_text = wtext(text="4.0")
 scene.append_to_caption("\n")
 rtube_slider = slider(min=1.5, max=6, value=4, step=0.5, length=300, bind=change_sim)
 
+scene.append_to_caption("\n\nPlasma Density (x10^20 per m^3): ")
+density_text = wtext(text="5.0")
+scene.append_to_caption("\n")
+density_slider = slider(min=1, max=10, value=5, step=0.5, length=300, bind=change_sim)
+
 scene.append_to_caption("\n\n")
+status_text = wtext(text="")
+scene.append_to_caption("\n")
+lawson_text  = wtext(text="")
+scene.append_to_caption("\n")
 
 change_sim()
 
@@ -273,13 +335,11 @@ while True:
     if running:
         frame += 1
 
-        # RK4 velocity update (replaced Euler)
         v_init1 = rk4_velocity(v_init1, charge1, mass1, dt)
         v_init2 = rk4_velocity(v_init2, charge2, mass2, dt)
         a1 = mag(lorentz_accel(v_init1, charge1, mass1))
         a2 = mag(lorentz_accel(v_init2, charge2, mass2))
 
-        # Separate per-particle toroidal and poloidal speeds
         poloidal1_speed = mag(v_init1) / r_tube
         poloidal2_speed = mag(v_init2) / r_tube
         phi1 += toroidal1_speed * dt
@@ -296,17 +356,28 @@ while True:
             total_energy += fusion_energy
             update_city()
             flash = sphere(pos=(particle1.pos + particle2.pos)/2,
-                           radius=0.4, color=color.yellow, emissive=True)
+                           radius=0.4, color=color.yellow, emissive=True, opacity=1)
             collisions.append(flash)
 
-        # Fade collision flashes
         for c in collisions:
             if c.visible:
                 c.opacity -= 0.02
                 if c.opacity <= 0.05:
                     c.visible = False
 
-        # Graph every 5th frame to stay smooth
+        # ---- NEW: Lawson criterion check every frame ----
+        if lawson_product() < lawson_threshold:
+            lawson_fail_time += dt
+            for m in magnet_objects:
+                m.color = color.orange   # warn: magnets turn orange
+            if lawson_fail_time > shutdown_grace:
+                shutdown_reactor()
+        else:
+            lawson_fail_time = 0
+            for m in magnet_objects:
+                m.color = color.blue     # stable: magnets back to blue
+        # -------------------------------------------------
+
         if frame % 5 == 0:
             energy_curve.plot(t, total_energy)
             collision_curve.plot(t, collision_count)
@@ -314,6 +385,9 @@ while True:
             velocity2_curve.plot(t, mag(v_init2))
             accel1_curve.plot(t, a1)
             accel2_curve.plot(t, a2)
+
+        if frame % 25 == 0:
+            update_status()
 
         t = t + dt
 
