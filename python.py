@@ -6,36 +6,27 @@ B_field = vector(0, 0, 2)
 particles = []
 collisions = []
 running = False
-shutdown = False
 fusion_distance = 0.7
 collision_count = 0
 total_energy = 0
-radius_orbit = 4
 c_light = 3e8
 defect_fraction = 0.00375
 energy_per_building = 35.2
-lawson_threshold = 3e21
-lawson_fail_time = 0
-shutdown_grace = 2.0
+fusion_energy = 17.6   # MeV
+
 magnet_objects = []
 tokamak_objects = []
 base_field_strength = 0.25
 
-# FIXED: these were missing in original, caused NameError on draw calls
-tokamak_center = vector(0, 0, 0)
+tokamak_center = vector(-15, 0, 0)   # moved left to make room for city on right
 num_magnets = 8
 
-# FIXED: fusion_energy was referenced but never defined
-# Using simplified E = defect_fraction * (m1+m2) * c^2 for D-T reaction
-# Hardcoded approximate value in MeV for now
-fusion_energy = 17.6   # MeV, standard D-T fusion yield
-
-R = 8        # major radius
-r_tube = 2   # minor radius
+R = 8
+r_tube = 4        # now controllable via slider
 toroidal_speed = 0.5
 
-phi1 = 0
-phi2 = pi
+phi1 = pi
+phi2 = 0
 theta1 = 0
 theta2 = 0
 
@@ -71,10 +62,7 @@ def draw_magnets():
         magnet = box(pos=vector(x, 0, z), size=vector(0.8, 4, 1.5), color=color.blue)
         magnet_objects.append(magnet)
 
-# FIXED: draw_tokamak and draw_magnets are now actually called
-draw_tokamak()
-draw_magnets()
-
+# City
 city_windows = []
 building_positions = [vector(15,0,0), vector(18,0,0), vector(21,0,0), vector(24,0,0), vector(27,0,0)]
 building_heights = [4, 6, 5, 8, 7]
@@ -97,13 +85,13 @@ deuterium = FusingParticles(name="Deuterium", mass=3.344, charge=1.6, v_initial=
 helium3   = FusingParticles(name="Helium-3",  mass=5.008, charge=3.2, v_initial=vector(0.5, 0.1, 0.3), color=color.orange)
 
 # Making particles
-particle1 = sphere(pos=vector(-8, 0, 0), radius=0.2, color=particles[0].color)
+particle1 = sphere(pos=vector(0,0,0), radius=0.2, color=particles[0].color)
 trail1 = curve(color=particles[0].color, radius=0.05)
 mass1 = particles[0].mass
 charge1 = particles[0].charge
 v_init1 = -particles[0].velocity
 
-particle2 = sphere(pos=vector(8, 0, 0), radius=0.2, color=particles[1].color)
+particle2 = sphere(pos=vector(0,0,0), radius=0.2, color=particles[1].color)
 trail2 = curve(color=particles[1].color, radius=0.05)
 mass2 = particles[1].mass
 charge2 = particles[1].charge
@@ -115,9 +103,6 @@ def get_pos(phi, theta):
     z = (R + r_tube * cos(theta)) * sin(phi)
     return vector(x, y, z) + tokamak_center
 
-particle1.pos = get_pos(phi1, theta1)
-particle2.pos = get_pos(phi2, theta2)
-
 # Graphs
 g1 = graph(title="Fusion Energy vs Time", xtitle="Time", ytitle="Energy (MeV)")
 energy_curve = gcurve(color=color.yellow)
@@ -125,75 +110,139 @@ energy_curve = gcurve(color=color.yellow)
 g2 = graph(title="Collision Count vs Time", xtitle="Time", ytitle="Collisions")
 collision_curve = gcurve(color=color.green)
 
-# Reset
-def reset_sim():
-    global v_init1, v_init2, t, running, phi1, phi2, theta1, theta2
-    global total_energy, collision_count
-    t = 0
-    running = False
-    play_button.text = "Start"
-    phi1 = 0
-    phi2 = pi
-    theta1 = 0
-    theta2 = 0
-    total_energy = 0
-    collision_count = 0
-    trail1.clear()
-    trail2.clear()
-    v_init1 = -vector(find_particle(menu1.selected).velocity)
-    v_init2 = vector(find_particle(menu2.selected).velocity)
-    particle1.pos = get_pos(phi1, theta1)
-    particle2.pos = get_pos(phi2, theta2)
-
 def find_particle(name):
     for p in particles:
         if p.element == name:
             return p
     return None
 
-def change_element1(i):
-    global mass1, charge1, v_init1
-    p = find_particle(i.selected)
-    particle1.color = p.color
-    trail1.color = p.color
-    mass1 = p.mass
-    charge1 = p.charge
-    v_init1 = -vector(p.velocity)
-    reset_sim()
+# change_sim handles every slider/menu change — redraws reactor, resets state
+def change_sim():
+    global B_field, running, v_init1, v_init2
+    global total_energy, collision_count
+    global phi1, phi2, theta1, theta2, t, num_magnets, r_tube
+    global mass1, mass2, charge1, charge2, toroidal_speed
 
-def change_element2(i):
-    global mass2, charge2, v_init2
-    p = find_particle(i.selected)
-    particle2.color = p.color
-    trail2.color = p.color
-    mass2 = p.mass
-    charge2 = p.charge
-    v_init2 = vector(p.velocity)
-    reset_sim()
+    # Read slider values and update display text
+    bfield_text.text = "{:.2f}".format(bfield_slider.value)
+    toroidal_text.text  = "{:.2f}".format(toroidal_slider.value)
+    num_magnets = int(magnet_slider.value)
+    magnet_text.text = str(num_magnets)
+    r_tube = rtube_slider.value
+    rtube_text.text = "{:.1f}".format(r_tube)
 
-element_names = [p.element for p in particles]
-scene.caption = "Particle 1: "
-menu1 = menu(choices=element_names, selected=element_names[0], bind=change_element1)
-scene.append_to_caption("  Particle 2: ")
-menu2 = menu(choices=element_names, selected=element_names[1], bind=change_element2)
-scene.append_to_caption("\n\n")
+    draw_tokamak()
+    draw_magnets()
+
+    running = False
+    play_button.text = "Play"
+    t = 0
+
+    trail1.clear()
+    trail2.clear()
+
+    p1 = find_particle(menu1.selected)
+    p2 = find_particle(menu2.selected)
+    particle1.color = p1.color
+    particle2.color = p2.color
+    trail1.color = p1.color
+    trail2.color = p2.color
+    mass1 = p1.mass
+    charge1 = p1.charge
+    mass2 = p2.mass
+    charge2 = p2.charge
+
+    phi1 = pi
+    phi2 = 0
+    theta1 = 0
+    theta2 = 0
+    toroidal_speed = toroidal_slider.value
+
+    # B field strength includes base field + contribution from each magnet
+    B_strength = bfield_slider.value + num_magnets * base_field_strength
+    B_field = vector(0, 0, B_strength)
+
+    particle1.pos = get_pos(phi1, theta1)
+    particle2.pos = get_pos(phi2, theta2)
+
+    energy_curve.delete()
+    collision_curve.delete()
+
+    v_init1 = -vector(p1.velocity)
+    v_init2 = vector(p2.velocity)
+    total_energy = 0
+    collision_count = 0
+    update_city()
+
+def reset_sim():
+    # Reset all sliders to defaults, then call change_sim
+    bfield_slider.value = 2
+    toroidal_slider.value = 0.5
+    magnet_slider.value = 8
+    rtube_slider.value = 4
+    for c in collisions:
+        c.visible = False
+    change_sim()
 
 def toggle_sim(b):
     global running
     running = not running
-    b.text = "Stop" if running else "Start"
+    b.text = "Pause" if running else "Play"
 
-play_button = button(text="Start", bind=toggle_sim)
+def change_element1(i):
+    change_sim()
+
+def change_element2(i):
+    change_sim()
+
+element_names = [p.element for p in particles]
+
+# UI Layout
+scene.caption = "Press Play to Start Fusion\n\n"
+play_button = button(text="Play", bind=toggle_sim)
 scene.append_to_caption(" ")
 button(text="Reset", bind=reset_sim)
+scene.append_to_caption("\n\n")
 
+scene.append_to_caption("Particle 1: ")
+menu1 = menu(choices=element_names, selected=element_names[0], bind=change_element1)
+scene.append_to_caption("  Particle 2: ")
+menu2 = menu(choices=element_names, selected=element_names[1], bind=change_element2)
+scene.append_to_caption("\n")
+
+scene.append_to_caption("\n\nExternal B Field Strength: ")
+bfield_text = wtext(text="2.00")
+scene.append_to_caption("\n")
+bfield_slider = slider(min=0, max=10, value=2, length=300, bind=change_sim)
+
+scene.append_to_caption("\n\nToroidal Speed: ")
+toroidal_text = wtext(text="0.50")
+scene.append_to_caption("\n")
+toroidal_slider = slider(min=0.1, max=3.0, value=0.5, length=300, bind=change_sim)
+
+scene.append_to_caption("\n\nNumber of Magnets: ")
+magnet_text = wtext(text="8")
+scene.append_to_caption("\n")
+magnet_slider = slider(min=4, max=20, value=8, length=300, bind=change_sim)
+
+scene.append_to_caption("\n\nReactor Tube Radius: ")
+rtube_text = wtext(text="4.0")
+scene.append_to_caption("\n")
+rtube_slider = slider(min=1.5, max=6, value=4, step=0.5, length=300, bind=change_sim)
+
+scene.append_to_caption("\n\n")
+
+# Initialize everything now that UI widgets exist
+change_sim()
+
+# Simulation loop
 dt = 0.01
 t = 0
 
 while True:
     rate(1000)
     if running:
-        # Euler integration (unchanged from original)
+        # Still using Euler integration
         F1 = charge1 * cross(v_init1, B_field)
         F2 = charge2 * cross(v_init2, B_field)
         v_init1 = v_init1 + (F1 / mass1) * dt
@@ -213,7 +262,6 @@ while True:
         if mag(particle1.pos - particle2.pos) < fusion_distance:
             collision_count += 1
             total_energy += fusion_energy
-            # FIXED: update_city is now actually called on fusion
             update_city()
             flash = sphere(pos=(particle1.pos + particle2.pos)/2,
                            radius=0.4, color=color.yellow, emissive=True)
