@@ -11,16 +11,12 @@ fusion_distance = 0.7
 collision_count = 0
 total_energy = 0
 c_light = 3e8
-defect_fraction = 0.00375
-energy_per_building = 35.2
-fusion_energy = 17.6   # MeV
+defect_fraction = 0.00375     # D-T fusion converts ~0.375% of mass to energy
+energy_per_building = 35.2    # MeV to light one building
 
-# ---- Lawson criterion constants ----
-# n * T * tau >= 3e21 keV*s/m^3 for a viable D-T reactor
 lawson_threshold = 3e21
 lawson_fail_time = 0
-shutdown_grace = 2.0   # seconds the reactor can fail before it shuts down
-# -----------------------------------------
+shutdown_grace = 2.0
 
 magnet_objects = []
 tokamak_objects = []
@@ -123,17 +119,22 @@ def rk4_velocity(v, q, m, dt):
     k4 = lorentz_accel(v +     dt*k3, q, m)
     return v + (dt / 6) * (k1 + 2*k2 + 2*k3 + k4)
 
-# ---- NEW: Lawson criterion physics functions ----
+# ---- NEW: E = mc^2 energy calculation ----
+def fusion_energy_mc2(m1, m2):
+    # Energy released from the mass defect of the D-T reaction
+    delta_m = defect_fraction * (m1 + m2) * 1e-27   # kg
+    E_joules = delta_m * c_light**2                  # J
+    return E_joules / 1.602e-13                      # convert J -> MeV
+# ------------------------------------------
+
+# Lawson criterion
 def effective_density():
-    # Plasma density scales inversely with tube cross-section area (n ~ 1/r^2)
-    return density_slider.value * (4.0 / r_tube)**2   # units of 10^20 m^-3
+    return density_slider.value * (4.0 / r_tube)**2
 
 def plasma_temperature():
-    # Temperature estimated from mean kinetic energy of the two particles (keV)
     return 8.0 * (mag2(v_init1) + mag2(v_init2)) / 2
 
 def confinement_time():
-    # Stronger field = better confinement = longer tau (s)
     return 0.5 * mag(B_field)
 
 def lawson_product():
@@ -161,7 +162,6 @@ def update_status():
         status_text.text = "WARNING: Lawson criterion NOT met - reactor will shut down!"
     if total_energy >= energy_per_building * len(city_windows):
         status_text.text = "CITY FULLY POWERED! Total energy: {:.1f} MeV".format(total_energy)
-# ------------------------------------------------
 
 # Graphs
 g1 = graph(title="Fusion Energy vs Time", xtitle="Time", ytitle="Energy (MeV)")
@@ -329,11 +329,15 @@ change_sim()
 dt = 0.01
 t = 0
 frame = 0
+old_pos1 = vector(particle1.pos)
+old_pos2 = vector(particle2.pos)
 
 while True:
     rate(1000)
     if running:
         frame += 1
+        old_pos1 = vector(particle1.pos)
+        old_pos2 = vector(particle2.pos)
 
         v_init1 = rk4_velocity(v_init1, charge1, mass1, dt)
         v_init2 = rk4_velocity(v_init2, charge2, mass2, dt)
@@ -351,13 +355,24 @@ while True:
         trail1.append(particle1.pos)
         trail2.append(particle2.pos)
 
-        if mag(particle1.pos - particle2.pos) < fusion_distance:
+        # ---- NEW: probabilistic reaction rate R = n^2 * <sigma*v_rel> ----
+        real_v1 = (particle1.pos - old_pos1) / dt
+        real_v2 = (particle2.pos - old_pos2) / dt
+        v_rel = mag(real_v1 - real_v2)
+        n_eff = effective_density()
+        p_fuse = 0.0008 * n_eff * n_eff * v_rel
+        if p_fuse > 1: p_fuse = 1
+
+        if mag(particle1.pos - particle2.pos) < fusion_distance and random() < p_fuse:
             collision_count += 1
-            total_energy += fusion_energy
+            # Use E = mc^2 instead of hardcoded 17.6 MeV
+            E_released = fusion_energy_mc2(mass1, mass2)
+            total_energy += E_released
             update_city()
             flash = sphere(pos=(particle1.pos + particle2.pos)/2,
                            radius=0.4, color=color.yellow, emissive=True, opacity=1)
             collisions.append(flash)
+        # -------------------------------------------------------------------
 
         for c in collisions:
             if c.visible:
@@ -365,18 +380,16 @@ while True:
                 if c.opacity <= 0.05:
                     c.visible = False
 
-        # ---- NEW: Lawson criterion check every frame ----
         if lawson_product() < lawson_threshold:
             lawson_fail_time += dt
             for m in magnet_objects:
-                m.color = color.orange   # warn: magnets turn orange
+                m.color = color.orange
             if lawson_fail_time > shutdown_grace:
                 shutdown_reactor()
         else:
             lawson_fail_time = 0
             for m in magnet_objects:
-                m.color = color.blue     # stable: magnets back to blue
-        # -------------------------------------------------
+                m.color = color.blue
 
         if frame % 5 == 0:
             energy_curve.plot(t, total_energy)
