@@ -18,12 +18,13 @@ magnet_objects = []
 tokamak_objects = []
 base_field_strength = 0.25
 
-tokamak_center = vector(-15, 0, 0)   # moved left to make room for city on right
+tokamak_center = vector(-15, 0, 0)
 num_magnets = 8
 
 R = 8
-r_tube = 4        # now controllable via slider
-toroidal_speed = 0.5
+r_tube = 4
+toroidal1_speed = 0.5   # now separate per particle
+toroidal2_speed = 1.0
 
 phi1 = pi
 phi2 = 0
@@ -103,6 +104,20 @@ def get_pos(phi, theta):
     z = (R + r_tube * cos(theta)) * sin(phi)
     return vector(x, y, z) + tokamak_center
 
+# ---- NEW: RK4 physics functions ----
+def lorentz_accel(v, q, m):
+    # a = (q/m) * (v x B)
+    return (q / m) * cross(v, B_field)
+
+def rk4_velocity(v, q, m, dt):
+    # 4th-order Runge-Kutta for velocity update under Lorentz force
+    k1 = lorentz_accel(v,                 q, m)
+    k2 = lorentz_accel(v + 0.5*dt*k1,    q, m)
+    k3 = lorentz_accel(v + 0.5*dt*k2,    q, m)
+    k4 = lorentz_accel(v +     dt*k3,    q, m)
+    return v + (dt / 6) * (k1 + 2*k2 + 2*k3 + k4)
+# ------------------------------------
+
 # Graphs
 g1 = graph(title="Fusion Energy vs Time", xtitle="Time", ytitle="Energy (MeV)")
 energy_curve = gcurve(color=color.yellow)
@@ -110,22 +125,31 @@ energy_curve = gcurve(color=color.yellow)
 g2 = graph(title="Collision Count vs Time", xtitle="Time", ytitle="Collisions")
 collision_curve = gcurve(color=color.green)
 
+# NEW: velocity and acceleration graphs
+g3 = graph(title="Particle Speed vs Time", xtitle="Time", ytitle="Speed")
+velocity1_curve = gcurve(color=color.red,  label="Particle 1")
+velocity2_curve = gcurve(color=color.blue, label="Particle 2")
+
+g4 = graph(title="Particle Acceleration vs Time", xtitle="Time", ytitle="|a| = |qv x B|/m")
+accel1_curve = gcurve(color=color.red,  label="Particle 1")
+accel2_curve = gcurve(color=color.blue, label="Particle 2")
+
 def find_particle(name):
     for p in particles:
         if p.element == name:
             return p
     return None
 
-# change_sim handles every slider/menu change — redraws reactor, resets state
 def change_sim():
     global B_field, running, v_init1, v_init2
     global total_energy, collision_count
     global phi1, phi2, theta1, theta2, t, num_magnets, r_tube
-    global mass1, mass2, charge1, charge2, toroidal_speed
+    global mass1, mass2, charge1, charge2
+    global toroidal1_speed, toroidal2_speed
 
-    # Read slider values and update display text
-    bfield_text.text = "{:.2f}".format(bfield_slider.value)
-    toroidal_text.text  = "{:.2f}".format(toroidal_slider.value)
+    bfield_text.text    = "{:.2f}".format(bfield_slider.value)
+    toroidal1_text.text = "{:.2f}".format(toroidal1_slider.value)
+    toroidal2_text.text = "{:.2f}".format(toroidal2_slider.value)
     num_magnets = int(magnet_slider.value)
     magnet_text.text = str(num_magnets)
     r_tube = rtube_slider.value
@@ -156,15 +180,19 @@ def change_sim():
     phi2 = 0
     theta1 = 0
     theta2 = 0
-    toroidal_speed = toroidal_slider.value
+    toroidal1_speed = toroidal1_slider.value
+    toroidal2_speed = toroidal2_slider.value
 
-    # B field strength includes base field + contribution from each magnet
     B_strength = bfield_slider.value + num_magnets * base_field_strength
     B_field = vector(0, 0, B_strength)
 
     particle1.pos = get_pos(phi1, theta1)
     particle2.pos = get_pos(phi2, theta2)
 
+    velocity1_curve.delete()
+    velocity2_curve.delete()
+    accel1_curve.delete()
+    accel2_curve.delete()
     energy_curve.delete()
     collision_curve.delete()
 
@@ -175,11 +203,11 @@ def change_sim():
     update_city()
 
 def reset_sim():
-    # Reset all sliders to defaults, then call change_sim
-    bfield_slider.value = 2
-    toroidal_slider.value = 0.5
-    magnet_slider.value = 8
-    rtube_slider.value = 4
+    bfield_slider.value    = 2
+    toroidal1_slider.value = 0.5
+    toroidal2_slider.value = 1.0
+    magnet_slider.value    = 8
+    rtube_slider.value     = 4
     for c in collisions:
         c.visible = False
     change_sim()
@@ -189,21 +217,17 @@ def toggle_sim(b):
     running = not running
     b.text = "Pause" if running else "Play"
 
-def change_element1(i):
-    change_sim()
-
-def change_element2(i):
-    change_sim()
+def change_element1(i): change_sim()
+def change_element2(i): change_sim()
 
 element_names = [p.element for p in particles]
 
-# UI Layout
+# UI
 scene.caption = "Press Play to Start Fusion\n\n"
 play_button = button(text="Play", bind=toggle_sim)
 scene.append_to_caption(" ")
 button(text="Reset", bind=reset_sim)
 scene.append_to_caption("\n\n")
-
 scene.append_to_caption("Particle 1: ")
 menu1 = menu(choices=element_names, selected=element_names[0], bind=change_element1)
 scene.append_to_caption("  Particle 2: ")
@@ -215,10 +239,15 @@ bfield_text = wtext(text="2.00")
 scene.append_to_caption("\n")
 bfield_slider = slider(min=0, max=10, value=2, length=300, bind=change_sim)
 
-scene.append_to_caption("\n\nToroidal Speed: ")
-toroidal_text = wtext(text="0.50")
+scene.append_to_caption("\n\nParticle 1 Toroidal Speed: ")
+toroidal1_text = wtext(text="0.50")
 scene.append_to_caption("\n")
-toroidal_slider = slider(min=0.1, max=3.0, value=0.5, length=300, bind=change_sim)
+toroidal1_slider = slider(min=0.1, max=3.0, value=0.5, length=300, bind=change_sim)
+
+scene.append_to_caption("\n\nParticle 2 Toroidal Speed: ")
+toroidal2_text = wtext(text="1.00")
+scene.append_to_caption("\n")
+toroidal2_slider = slider(min=0.1, max=3.0, value=1.0, length=300, bind=change_sim)
 
 scene.append_to_caption("\n\nNumber of Magnets: ")
 magnet_text = wtext(text="8")
@@ -232,26 +261,29 @@ rtube_slider = slider(min=1.5, max=6, value=4, step=0.5, length=300, bind=change
 
 scene.append_to_caption("\n\n")
 
-# Initialize everything now that UI widgets exist
 change_sim()
 
 # Simulation loop
 dt = 0.01
 t = 0
+frame = 0
 
 while True:
     rate(1000)
     if running:
-        # Still using Euler integration
-        F1 = charge1 * cross(v_init1, B_field)
-        F2 = charge2 * cross(v_init2, B_field)
-        v_init1 = v_init1 + (F1 / mass1) * dt
-        v_init2 = v_init2 + (F2 / mass2) * dt
+        frame += 1
 
-        poloidal1_speed = mag(v_init1)
-        poloidal2_speed = mag(v_init2)
-        phi1 += toroidal_speed * dt
-        phi2 += toroidal_speed * dt
+        # RK4 velocity update (replaced Euler)
+        v_init1 = rk4_velocity(v_init1, charge1, mass1, dt)
+        v_init2 = rk4_velocity(v_init2, charge2, mass2, dt)
+        a1 = mag(lorentz_accel(v_init1, charge1, mass1))
+        a2 = mag(lorentz_accel(v_init2, charge2, mass2))
+
+        # Separate per-particle toroidal and poloidal speeds
+        poloidal1_speed = mag(v_init1) / r_tube
+        poloidal2_speed = mag(v_init2) / r_tube
+        phi1 += toroidal1_speed * dt
+        phi2 += toroidal2_speed * dt
         theta1 += poloidal1_speed * dt
         theta2 -= poloidal2_speed * dt
         particle1.pos = get_pos(phi1, theta1)
@@ -267,7 +299,21 @@ while True:
                            radius=0.4, color=color.yellow, emissive=True)
             collisions.append(flash)
 
-        energy_curve.plot(t, total_energy)
-        collision_curve.plot(t, collision_count)
+        # Fade collision flashes
+        for c in collisions:
+            if c.visible:
+                c.opacity -= 0.02
+                if c.opacity <= 0.05:
+                    c.visible = False
+
+        # Graph every 5th frame to stay smooth
+        if frame % 5 == 0:
+            energy_curve.plot(t, total_energy)
+            collision_curve.plot(t, collision_count)
+            velocity1_curve.plot(t, mag(v_init1))
+            velocity2_curve.plot(t, mag(v_init2))
+            accel1_curve.plot(t, a1)
+            accel2_curve.plot(t, a2)
+
         t = t + dt
 
