@@ -74,8 +74,8 @@ def draw_magnets():
 
 # ---------------- City ----------------
 city_windows = []
-building_positions = [vector(15,0,0), vector(18,0,0), vector(21,0,0), vector(24,0,0), vector(27,0,0)]
-building_heights = [4,6,5,8,7]
+building_positions = [vector(15,0,0), vector(18,2,0), vector(21,1,0), vector(24,4,0), vector(27,3,0)]
+building_heights = [10, 14, 12, 18, 16]
 for i in range(len(building_positions)):
     box(pos=building_positions[i], size=vector(2,building_heights[i],2), color=color.gray(0.4))
     # the glowy window on the front face
@@ -164,8 +164,6 @@ def shutdown_reactor():
 # ---------------- Graphs ----------------
 g1 = graph(title="Fusion Energy vs Time", xtitle="Time", ytitle="Energy (MeV)", align = 'right')
 energy_curve = gcurve(color=color.yellow)
-g2 = graph(title="Collision Count vs Time", xtitle="Time", ytitle="Collisions", align = 'right')
-collision_curve = gcurve(color=color.green)
 g3 = graph(title="Particle Speed vs Time", xtitle="Time", ytitle="Speed", align = 'right')
 velocity1_curve = gcurve(color=color.red, label="Particle 1")
 velocity2_curve = gcurve(color=color.blue, label="Particle 2")
@@ -250,28 +248,28 @@ def change_sim():
     accel1_curve.delete()
     accel2_curve.delete()
     energy_curve.delete()
-    collision_curve.delete()
 
     v_init1 = -vector(p1.velocity)
     v_init2 = vector(p2.velocity)
     total_energy = 0
     collision_count = 0
+    collision_text.text = "0"
     update_city()
     update_status()
     check_compatible()
 
 def update_status():
     prod = lawson_product()
-    lawson_text.text = " Lawson product: {:.2f}".format(prod/1e21) + " x10^21  (need >= 3.00 x10^21 keV*s/m^3)"
+    lawson_text.text = " Lawson Product: {:.2f}".format(prod/1e21) + " x10^21  (need >= 3.00 x10^21 keV*s/m^3)"
     if shutdown:
         return
     if prod >= lawson_threshold:
-        status_text.text = " Lawson criterion MET - reactor stable."
+        status_text.text = " Lawson Criterion MET - Reactor Stable."
     else:
-        status_text.text = " WARNING: Lawson criterion NOT met - reactor will shut down!"
+        status_text.text = " WARNING: Lawson Criterion NOT Met - Reactor Will Shut Down!"
     # win condition: every building lit
     if total_energy >= energy_per_building * len(city_windows):
-        status_text.text = " CITY FULLY POWERED! Total energy: {:.1f} MeV".format(total_energy)
+        status_text.text = " CITY FULLY POWERED! Total Energy: {:.1f} MeV".format(total_energy)
 
 def find_particle(name):
     for p in particles:
@@ -331,6 +329,8 @@ density_text = wtext(text="5.0")
 scene.append_to_caption("\n")
 density_slider = slider(min=1, max=10, value=5, step=0.5, length=300, bind=change_sim)
 
+scene.append_to_caption("\n\n Collisions: ")
+collision_text = wtext(text="0")
 scene.append_to_caption("\n\n ")
 status_text = wtext(text=" ")
 scene.append_to_caption("\n ")
@@ -385,6 +385,7 @@ while True:
 
         if mag(particle1.pos - particle2.pos) < fusion_distance and random() < p_fuse:
             collision_count += 1
+            collision_text.text = str(collision_count)
             # E = mc^2 payout from the mass defect
 
             if collision_count > 0:
@@ -417,9 +418,8 @@ while True:
         # only plot every 5th frame so it doesn't lag
         if frame % 5 == 0:
             energy_curve.plot(t, total_energy)
-            collision_curve.plot(t, collision_count)
-            velocity1_curve.plot(t, mag(v_init1))
-            velocity2_curve.plot(t, mag(v_init2))
+            velocity1_curve.plot(t, mag(real_v1))
+            velocity2_curve.plot(t, mag(real_v2))
             accel1_curve.plot(t, a1)
             accel2_curve.plot(t, a2)
         if frame % 25 == 0:
