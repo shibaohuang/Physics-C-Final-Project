@@ -30,9 +30,14 @@ base_field_strength = 0.25
 # ---------------- Tokamak Geometry ----------------
 R = 8       # major radius, the big donut circle
 r_tube = 4  # minor radius, particles loop around inside this
+<<<<<<< HEAD
 toroidal1_speed = 0.5
 toroidal2_speed = 1.0
 phi1 = pi   # where particle 1 starts on the big circle
+=======
+toroidal_speed = 0.5
+phi1 = 0   # where particle 1 starts on the big circle
+>>>>>>> Esther
 phi2 = 0
 theta1 = 0  # where it starts inside the tube
 theta2 = 0
@@ -187,7 +192,10 @@ def reset_sim():
     menu2.selected = element_names[1]
     bfield_slider.value = 2
     toroidal1_slider.value = 0.5
+<<<<<<< HEAD
     toroidal2_slider.value = 1
+=======
+>>>>>>> Esther
     magnet_slider.value = 8
     rtube_slider.value = 4
     density_slider.value = 5
@@ -198,13 +206,20 @@ def reset_sim():
 def change_sim():
     global B_field, running, shutdown, v_init1, v_init2
     global total_energy, collision_count, lawson_fail_time
+<<<<<<< HEAD
     global toroidal1_speed, toroidal2_speed
+=======
+    global toroidal_speed
+>>>>>>> Esther
     global phi1, phi2, theta1, theta2, t, num_magnets, r_tube
     global mass1, mass2, charge1, charge2
 
     # pull all the current slider/menu values
     toroidal1_text.text = "{:.2f}".format(toroidal1_slider.value)
+<<<<<<< HEAD
     toroidal2_text.text = "{:.2f}".format(toroidal2_slider.value)
+=======
+>>>>>>> Esther
     bfield_text.text = "{:.2f}".format(bfield_slider.value)
     num_magnets = int(magnet_slider.value)
     magnet_text.text = str(num_magnets)
@@ -235,12 +250,20 @@ def change_sim():
     charge2 = p2.charge
 
     # back to starting angles
+<<<<<<< HEAD
     phi1 = pi
     phi2 = 0
     theta1 = 0
     theta2 = 0
     toroidal1_speed = toroidal1_slider.value
     toroidal2_speed = toroidal2_slider.value
+=======
+    phi1 = 0
+    phi2 = 0
+    theta1 = 0
+    theta2 = 0
+    toroidal_speed = toroidal1_slider.value
+>>>>>>> Esther
     # external field plus a bit extra per magnet
     B_strength = bfield_slider.value + num_magnets * base_field_strength
     B_field = vector(0, 0, B_strength)
@@ -307,15 +330,9 @@ bfield_text = wtext(text="2.00")
 scene.append_to_caption("\n")
 bfield_slider = slider(min=0, max=10, value=2, length=300, bind=change_sim)
 
-scene.append_to_caption("\n\nParticle 1 Toroidal Speed: ")
 toroidal1_text = wtext(text="0.50")
 scene.append_to_caption("\n")
 toroidal1_slider = slider(min=0.1, max=3.0, value=0.5, length=300, bind=change_sim)
-
-scene.append_to_caption("\n\nParticle 2 Toroidal Speed: ")
-toroidal2_text = wtext(text="1.00")
-scene.append_to_caption("\n")
-toroidal2_slider = slider(min=0.1, max=3.0, value=1.0, length=300, bind=change_sim)
 
 scene.append_to_caption("\n\nNumber of Magnets: ")
 magnet_text = wtext(text="8")
@@ -364,8 +381,8 @@ while True:
         # helix = drift around the donut + spin inside the tube
         poloidal1_speed = mag(v_init1)
         poloidal2_speed = mag(v_init2)
-        phi1 += toroidal1_speed * dt
-        phi2 += toroidal2_speed * dt
+        phi1 += toroidal_speed * dt
+        phi2 += toroidal_speed * dt
         theta1 += poloidal1_speed * dt
         theta2 -= poloidal2_speed * dt
         particle1.pos = get_pos(phi1, theta1)
@@ -386,11 +403,13 @@ while True:
         if mag(particle1.pos - particle2.pos) < fusion_distance and random() < p_fuse:
             collision_count += 1
             # E = mc^2 payout from the mass defect
-            E_released = fusion_energy_mc2(mass1, mass2)
-            total_energy += E_released
-            update_city()
+
+            if collision_count > 0:
+                E_released = fusion_energy_mc2(mass1, mass2)
+                total_energy += E_released
+                update_city()
             flash = sphere(pos=(particle1.pos+particle2.pos)/2, radius=0.4,
-                           color=color.yellow, emissive=True, opacity=1)
+                               color=color.yellow, emissive=True, opacity=1)
             collisions.append(flash)
 
         # fade the old flashes out
