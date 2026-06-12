@@ -1,8 +1,7 @@
 Web VPython 3.2
-from vpython import *
 
 # ---------------- Static Variables ----------------
-B_field = vector(0, 0, 4)
+B_field = vector (0, 0, 0)
 particles = []
 collisions = []
 running = False
@@ -10,6 +9,8 @@ shutdown = False
 fusion_distance = 0.7
 collision_count = 0
 total_energy = 0
+
+scene.align = 'left'
 
 # stuff for the E = mc^2 calc
 c_light = 3e8
@@ -158,17 +159,17 @@ def shutdown_reactor():
         m.color = color.red
     for w in city_windows:
         w.color = color.black
-    status_text.text = "REACTOR SHUTDOWN: Lawson criterion not met. Press Reset."
+    status_text.text = " REACTOR SHUTDOWN: Press Reset."
 
 # ---------------- Graphs ----------------
-g1 = graph(title="Fusion Energy vs Time", xtitle="Time", ytitle="Energy (MeV)")
+g1 = graph(title="Fusion Energy vs Time", xtitle="Time", ytitle="Energy (MeV)", align = 'right')
 energy_curve = gcurve(color=color.yellow)
-g2 = graph(title="Collision Count vs Time", xtitle="Time", ytitle="Collisions")
+g2 = graph(title="Collision Count vs Time", xtitle="Time", ytitle="Collisions", align = 'right')
 collision_curve = gcurve(color=color.green)
-g3 = graph(title="Particle Speed vs Time", xtitle="Time", ytitle="Speed")
+g3 = graph(title="Particle Speed vs Time", xtitle="Time", ytitle="Speed", align = 'right')
 velocity1_curve = gcurve(color=color.red, label="Particle 1")
 velocity2_curve = gcurve(color=color.blue, label="Particle 2")
-g4 = graph(title="Particle Acceleration vs Time", xtitle="Time", ytitle="|a| = |qv x B|/m")
+g4 = graph(title="Particle Acceleration vs Time", xtitle="Time", ytitle="|a| = |qv x B|/m", align = 'right')
 accel1_curve = gcurve(color=color.red, label="Particle 1")
 accel2_curve = gcurve(color=color.blue, label="Particle 2")
 
@@ -184,7 +185,6 @@ def reset_sim():
     # dump everything back to defaults
     menu1.selected = element_names[0]
     menu2.selected = element_names[1]
-    bfield_slider.value = 2
     toroidal1_slider.value = 0.5
     magnet_slider.value = 8
     rtube_slider.value = 4
@@ -202,7 +202,6 @@ def change_sim():
 
     # pull all the current slider/menu values
     toroidal1_text.text = "{:.2f}".format(toroidal1_slider.value)
-    bfield_text.text = "{:.2f}".format(bfield_slider.value)
     num_magnets = int(magnet_slider.value)
     magnet_text.text = str(num_magnets)
     r_tube = rtube_slider.value
@@ -238,7 +237,7 @@ def change_sim():
     theta2 = 0
     toroidal_speed = toroidal1_slider.value
     # external field plus a bit extra per magnet
-    B_strength = bfield_slider.value + num_magnets * base_field_strength
+    B_strength = num_magnets * base_field_strength
     B_field = vector(0, 0, B_strength)
 
     particle1.pos = get_pos(phi1, theta1)
@@ -258,19 +257,20 @@ def change_sim():
     collision_count = 0
     update_city()
     update_status()
+    check_compatible()
 
 def update_status():
     prod = lawson_product()
-    lawson_text.text = "Lawson product: {:.2f}".format(prod/1e21) + " x10^21  (need >= 3.00 x10^21 keV*s/m^3)"
+    lawson_text.text = " Lawson product: {:.2f}".format(prod/1e21) + " x10^21  (need >= 3.00 x10^21 keV*s/m^3)"
     if shutdown:
         return
     if prod >= lawson_threshold:
-        status_text.text = "Lawson criterion MET - reactor stable."
+        status_text.text = " Lawson criterion MET - reactor stable."
     else:
-        status_text.text = "WARNING: Lawson criterion NOT met - reactor will shut down!"
+        status_text.text = " WARNING: Lawson criterion NOT met - reactor will shut down!"
     # win condition: every building lit
     if total_energy >= energy_per_building * len(city_windows):
-        status_text.text = "CITY FULLY POWERED! Total energy: {:.1f} MeV".format(total_energy)
+        status_text.text = " CITY FULLY POWERED! Total energy: {:.1f} MeV".format(total_energy)
 
 def find_particle(name):
     for p in particles:
@@ -283,51 +283,59 @@ def change_element1(i):
 
 def change_element2(i):
     change_sim()
+    
+def check_compatible():
+    if find_particle(menu1.selected).element == find_particle(menu2.selected).element and find_particle(menu1.selected).element == "Tritium":
+        shutdown_reactor()
+        compatible_text.text = " Compatibility: Tritium-Tritium Reaction Incompatible"
+    elif find_particle(menu1.selected).element == "Helium-3" and find_particle(menu2.selected).element == "Tritium":
+        shutdown_reactor()
+        compatible_text.text = " Compatibility: Helium-3-Tritium Reaction Incompatible"
+    elif find_particle(menu2.selected).element == "Helium-3" and find_particle(menu1.selected).element == "Tritium":
+        shutdown_reactor()
+        compatible_text.text = " Compatibility: Helium-3-Tritium Reaction Incompatible"
+    else:
+        compatible_text.text = " Compatibility: Reactants Compatible"
 
 element_names = [p.element for p in particles]
 
 # ---------------- UI ----------------
-scene.caption = "Press Play to Start Fusion \n\n"
+scene.caption = " Press Play to Start Fusion \n\n "
 play_button = button(text="Play", bind=toggle_sim)
 scene.append_to_caption(" ")
 button(text="Reset", bind=reset_sim)
 scene.append_to_caption("\n\n")
-scene.append_to_caption("Particle 1: ")
+scene.append_to_caption(" Particle 1: ")
 menu1 = menu(choices=element_names, selected=element_names[0], bind=change_element1)
 scene.append_to_caption(" Particle 2: ")
 menu2 = menu(choices=element_names, selected=element_names[1], bind=change_element2)
-scene.append_to_caption("\n")
 
-scene.append_to_caption("\n\nExternal B Field Strength: ")
-bfield_text = wtext(text="2.00")
-scene.append_to_caption("\n")
-bfield_slider = slider(min=0, max=10, value=2, length=300, bind=change_sim)
-
-scene.append_to_caption("\n\nParticle's Toroidal Speed: ")
+scene.append_to_caption("\n\n Particle's Toroidal Speed: ")
 toroidal1_text = wtext(text="0.50")
-scene.append_to_caption("\n")
+scene.append_to_caption("\n ")
 toroidal1_slider = slider(min=0.1, max=3.0, value=0.5, length=300, bind=change_sim)
 
-scene.append_to_caption("\n\nNumber of Magnets: ")
+scene.append_to_caption("\n\n Number of Magnets: ")
 magnet_text = wtext(text="8")
-scene.append_to_caption("\n")
+scene.append_to_caption("\n ")
 magnet_slider = slider(min=4, max=20, value=8, length=300, bind=change_sim)
 
-scene.append_to_caption("\n\nReactor Tube Radius (cross-section): ")
+scene.append_to_caption("\n\n Reactor Tube Radius (cross-section): ")
 rtube_text = wtext(text="4.0")
-scene.append_to_caption("\n")
+scene.append_to_caption("\n ")
 rtube_slider = slider(min=1.5, max=6, value=4, step=0.5, length=300, bind=change_sim)
 
-scene.append_to_caption("\n\nPlasma Density (x10^20 per m^3): ")
+scene.append_to_caption("\n\n Plasma Density (x10^20 per m^3): ")
 density_text = wtext(text="5.0")
 scene.append_to_caption("\n")
 density_slider = slider(min=1, max=10, value=5, step=0.5, length=300, bind=change_sim)
 
-scene.append_to_caption("\n\n")
-status_text = wtext(text="")
-scene.append_to_caption("\n")
-lawson_text = wtext(text="")
-scene.append_to_caption("\n")
+scene.append_to_caption("\n\n ")
+status_text = wtext(text=" ")
+scene.append_to_caption("\n ")
+lawson_text = wtext(text=" ")
+scene.append_to_caption("\n ")
+compatible_text = wtext(text=" ")
 
 # kick everything off now that the widgets exist
 change_sim()
