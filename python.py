@@ -416,8 +416,8 @@ while True:
         # only plot every 5th frame so it doesn't lag
         if frame % 5 == 0:
             energy_curve.plot(t, total_energy)
-            velocity1_curve.plot(t, mag(v_init1))
-            velocity2_curve.plot(t, mag(v_init2))
+            velocity1_curve.plot(t, mag(real_v1))
+            velocity2_curve.plot(t, mag(real_v2))
             accel1_curve.plot(t, a1)
             accel2_curve.plot(t, a2)
         if frame % 25 == 0:
