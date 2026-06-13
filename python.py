@@ -1,6 +1,8 @@
 Web VPython 3.2
 
 # ---------------- Static Variables ----------------
+scene.background = vector(0.15, 0.05, 0.25)
+
 B_field = vector (0, 0, 0)
 particles = []
 collisions = []
