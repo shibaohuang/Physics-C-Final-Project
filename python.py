@@ -165,13 +165,10 @@ def shutdown_reactor():
 
 # ---------------- Graphs ----------------
 g1 = graph(title="Fusion Energy vs Time", xtitle="Time", ytitle="Energy (MeV)", align = 'right')
-energy_curve = gcurve(color=color.yellow)
+energy_curve = gcurve(color=color.magenta)
 g3 = graph(title="Particle Speed vs Time", xtitle="Time", ytitle="Speed", align = 'right')
 velocity1_curve = gcurve(color=color.red, label="Particle 1")
 velocity2_curve = gcurve(color=color.blue, label="Particle 2")
-g4 = graph(title="Particle Acceleration vs Time", xtitle="Time", ytitle="|a| = |qv x B|/m", align = 'right')
-accel1_curve = gcurve(color=color.red, label="Particle 1")
-accel2_curve = gcurve(color=color.blue, label="Particle 2")
 
 # ---------------- Buttons ----------------
 def toggle_sim(b):
@@ -247,8 +244,6 @@ def change_sim():
     # wipe the graphs
     velocity1_curve.delete()
     velocity2_curve.delete()
-    accel1_curve.delete()
-    accel2_curve.delete()
     energy_curve.delete()
 
     v_init1 = -vector(p1.velocity)
@@ -422,8 +417,6 @@ while True:
             energy_curve.plot(t, total_energy)
             velocity1_curve.plot(t, mag(real_v1))
             velocity2_curve.plot(t, mag(real_v2))
-            accel1_curve.plot(t, a1)
-            accel2_curve.plot(t, a2)
         if frame % 25 == 0:
             update_status()
 
